@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Learn & Play!</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #FFF8F0;
+    --card-radius: 32px;
+    --shadow: 0 8px 32px rgba(0,0,0,0.13);
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+
+  /* Floating background blobs */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.18;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .blob1 { width: 400px; height: 400px; background: #FF6B6B; top: -100px; left: -100px; }
+  .blob2 { width: 350px; height: 350px; background: #4ECDC4; bottom: -80px; right: -80px; }
+  .blob3 { width: 250px; height: 250px; background: #FFE66D; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+  /* Home Screen */
+  #home-screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10;
+    gap: 24px;
+    padding: 24px;
+  }
+
+  .home-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    text-align: center;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 4px 8px rgba(255,107,107,0.3));
+  }
+
+  .home-subtitle {
+    font-size: 1.2rem;
+    color: #666;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .category-btn {
+    background: white;
+    border: none;
+    border-radius: 24px;
+    padding: 24px 16px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .category-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.08;
+    border-radius: 24px;
+  }
+
+  .category-btn.fruits::before { background: #FF6B6B; }
+  .category-btn.animals::before { background: #4ECDC4; }
+  .category-btn.vehicles::before { background: #FFE66D; }
+  .category-btn.veggies::before { background: #95E77E; }
+
+  .category-btn:active { transform: scale(0.93); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+  .category-emoji { font-size: 3rem; line-height: 1; }
+  .category-name {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.15rem;
+    color: #333;
+  }
+  .category-count {
+    font-size: 0.78rem;
+    color: #999;
+    font-weight: 800;
+  }
+
+  /* Flash Card Screen */
+  #card-screen {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px 32px;
+    z-index: 10;
+  }
+
+  /* Top Bar */
+  .top-bar {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .back-btn {
+    background: white;
+    border: none;
+    border-radius: 50%;
+    width: 52px; height: 52px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  .back-btn:active { transform: scale(0.88); }
+
+  .progress-wrap {
+    flex: 1;
+    margin: 0 16px;
+    background: #E8E0FF;
+    border-radius: 99px;
+    height: 14px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #A78BFA, #7C3AED);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+
+  .card-counter {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    color: #888;
+    white-space: nowrap;
+  }
+
+  /* The Card */
+  .card-wrapper {
+    width: 100%;
+    max-width: 420px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .flashcard {
+    width: 100%;
+    background: white;
+    border-radius: var(--card-radius);
+    box-shadow: 0 12px 48px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06);
+    padding: 32px 28px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    animation: cardIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: scale(0.85) translateY(30px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .flashcard:active { transform: scale(0.97); }
+
+  .card-bg-shape {
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    opacity: 0.08;
+  }
+
+  .tap-hint {
+    position: absolute;
+    top: 16px; right: 20px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #bbb;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .card-emoji {
+    font-size: clamp(5rem, 20vw, 8rem);
+    line-height: 1;
+    transition: transform 0.2s;
+    user-select: none;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .card-emoji.bounce {
+    animation: bigBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes bigBounce {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.4) rotate(-8deg); }
+    70%  { transform: scale(0.92) rotate(4deg); }
+    100% { transform: scale(1); }
+  }
+
+  .card-word {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 9vw, 3.2rem);
+    color: #1a1a1a;
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+
+  /* Spelling bubbles */
+  .spelling-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .letter-bubble {
+    width: clamp(36px, 9vw, 52px);
+    height: clamp(36px, 9vw, 52px);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(1.1rem, 4vw, 1.6rem);
+    color: white;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+    animation: letterPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  @keyframes letterPop {
+    from { transform: scale(0) rotate(-15deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  /* Fun fact */
+  .fact-box {
+    background: linear-gradient(135deg, #FFF3CD, #FFE08A);
+    border-radius: 20px;
+    padding: 14px 18px;
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .fact-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 1px; }
+
+  .fact-text {
+    font-size: clamp(0.85rem, 3vw, 1rem);
+    font-weight: 800;
+    color: #7A5800;
+    line-height: 1.45;
+  }
+
+  /* Speak button */
+  .speak-btn {
+    background: linear-gradient(135deg, #667EEA, #764BA2);
+    border: none;
+    border-radius: 99px;
+    padding: 16px 36px;
+    color: white;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.25rem;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(118,75,162,0.35);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .speak-btn:active { transform: scale(0.93); box-shadow: 0 3px 12px rgba(118,75,162,0.3); }
+  .speak-btn.speaking { background: linear-gradient(135deg, #FF6B6B, #FF8E53); }
+
+  /* Navigation */
+  .nav-row {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    gap: 14px;
+  }
+
+  .nav-btn {
+    flex: 1;
+    background: white;
+    border: none;
+    border-radius: 20px;
+    padding: 18px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #555;
+    transition: transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-btn:active { transform: scale(0.93); }
+  .nav-btn.next {
+    background: linear-gradient(135deg, #43E97B, #38F9D7);
+    color: white;
+    box-shadow: 0 6px 24px rgba(67,233,123,0.35);
+  }
+
+  /* Confetti */
+  .confetti-piece {
+    position: fixed;
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 999;
+    animation: confettiFall 1.2s ease-in forwards;
+  }
+
+  @keyframes confettiFall {
+    0%   { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg) scale(0.5); }
+  }
+
+  /* Color themes per category */
+  .theme-fruits .card-bg-shape { background: #FF6B6B; }
+  .theme-animals .card-bg-shape { background: #4ECDC4; }
+  .theme-vehicles .card-bg-shape { background: #FFE66D; }
+  .theme-veggies .card-bg-shape { background: #95E77E; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+
+<!-- HOME SCREEN -->
+<div id="home-screen">
+  <div class="home-title">🌟 Learn & Play!</div>
+  <div class="home-subtitle">Tap a category to start!</div>
+  <div class="category-grid">
+    <button class="category-btn fruits" onclick="startCategory('fruits')">
+      <div class="category-emoji">🍎</div>
+      <div class="category-name">Fruits</div>
+      <div class="category-count">8 cards</div>
+    </button>
+    <button class="category-btn animals" onclick="startCategory('animals')">
+      <div class="category-emoji">🦁</div>
+      <div class="category-name">Animals</div>
+      <div class="category-count">8 cards</div>
+    </button>
+    <button class="category-btn vehicles" onclick="startCategory('vehicles')">
+      <div class="category-emoji">🚗</div>
+      <div class="category-name">Vehicles</div>
+      <div class="category-count">8 cards</div>
+    </button>
+    <button class="category-btn veggies" onclick="startCategory('veggies')">
+      <div class="category-emoji">🥕</div>
+      <div class="category-name">Veggies</div>
+      <div class="category-count">8 cards</div>
+    </button>
+  </div>
+</div>
+
+<!-- CARD SCREEN -->
+<div id="card-screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div class="card-counter" id="card-counter">1 / 8</div>
+  </div>
+
+  <div class="card-wrapper">
+    <div class="flashcard" id="flashcard" onclick="handleCardTap()">
+      <div class="card-bg-shape" id="card-bg-shape"></div>
+      <div class="tap-hint">Tap me! 👆</div>
+      <div class="card-emoji" id="card-emoji">🍎</div>
+      <div class="card-word" id="card-word">Apple</div>
+      <div class="spelling-row" id="spelling-row"></div>
+      <div class="fact-box">
+        <div class="fact-icon">💡</div>
+        <div class="fact-text" id="fact-text">Apples come in red, green, and yellow!</div>
+      </div>
+      <button class="speak-btn" id="speak-btn" onclick="speakWord(event)">
+        🔊 Hear it!
+      </button>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="nav-btn" onclick="prevCard()">← Back</button>
+    <button class="nav-btn next" onclick="nextCard()">Next →</button>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = {
+  fruits: [
+    { emoji: '🍎', word: 'Apple',      fact: 'Apples can be red, green, or yellow. There are over 7,000 kinds of apples!' },
+    { emoji: '🍌', word: 'Banana',     fact: 'Bananas grow on tall plants. They start green and turn yellow!' },
+    { emoji: '🍊', word: 'Orange',     fact: 'Oranges are full of Vitamin C which keeps you healthy and strong!' },
+    { emoji: '🍇', word: 'Grape',      fact: 'Grapes grow in big bunches on vines. They can be purple or green!' },
+    { emoji: '🍓', word: 'Strawberry', fact: 'A strawberry has about 200 tiny seeds on the outside!' },
+    { emoji: '🍉', word: 'Watermelon', fact: 'Watermelons are 92% water! Great for staying cool in summer.' },
+    { emoji: '🍋', word: 'Lemon',      fact: 'Lemons are very sour! People use them to make lemonade.' },
+    { emoji: '🥭', word: 'Mango',      fact: 'Mango is called the king of fruits! It is sweet and juicy.' },
+  ],
+  animals: [
+    { emoji: '🦁', word: 'Lion',       fact: 'A group of lions is called a pride. Baby lions are called cubs!' },
+    { emoji: '🐘', word: 'Elephant',   fact: 'Elephants are the biggest land animals. They never forget!' },
+    { emoji: '🐧', word: 'Penguin',    fact: 'Penguins cannot fly but they are amazing swimmers!' },
+    { emoji: '🦒', word: 'Giraffe',    fact: 'Giraffes have very long necks to eat leaves from tall trees.' },
+    { emoji: '🐬', word: 'Dolphin',    fact: 'Dolphins are very smart and love to play and jump!' },
+    { emoji: '🦋', word: 'Butterfly',  fact: 'Butterflies taste with their feet and start life as caterpillars!' },
+    { emoji: '🐢', word: 'Turtle',     fact: 'Turtles can live for over 100 years. They carry their home on their back!' },
+    { emoji: '🦊', word: 'Fox',        fact: 'Foxes are very clever animals. They have big bushy tails!' },
+  ],
+  vehicles: [
+    { emoji: '🚗', word: 'Car',        fact: 'Cars have four wheels and take families on trips and adventures!' },
+    { emoji: '✈️', word: 'Airplane',   fact: 'Airplanes fly high in the sky and can go really really fast!' },
+    { emoji: '🚂', word: 'Train',      fact: 'Trains run on tracks and can carry hundreds of people at once!' },
+    { emoji: '🚒', word: 'Fire Truck', fact: 'Fire trucks are red and have long ladders to help fight fires!' },
+    { emoji: '🚀', word: 'Rocket',     fact: 'Rockets fly all the way to space where astronauts live!' },
+    { emoji: '⛵', word: 'Sailboat',   fact: 'Sailboats use the wind to move across the water. No engine needed!' },
+    { emoji: '🚁', word: 'Helicopter', fact: 'Helicopters have spinning blades on top that help them fly up!' },
+    { emoji: '🚌', word: 'Bus',        fact: 'Buses carry lots of people together. School buses are yellow!' },
+  ],
+  veggies: [
+    { emoji: '🥕', word: 'Carrot',     fact: 'Carrots grow underground! Rabbits absolutely love to eat them.' },
+    { emoji: '🌽', word: 'Corn',       fact: 'An ear of corn has about 800 kernels in 16 rows. Count them!' },
+    { emoji: '🥦', word: 'Broccoli',   fact: 'Broccoli looks like a tiny tree! It makes your bones very strong.' },
+    { emoji: '🍅', word: 'Tomato',     fact: 'Tomatoes are actually a fruit! They are red and juicy and yummy.' },
+    { emoji: '🥔', word: 'Potato',     fact: 'Potatoes grow underground too. You can make fries and chips from them!' },
+    { emoji: '🧅', word: 'Onion',      fact: 'Onions can make your eyes water when you cut them. Very sneaky!' },
+    { emoji: '🫛', word: 'Pea',        fact: 'Peas grow inside a green pod. You pop it open to find them inside!' },
+    { emoji: '🥒', word: 'Cucumber',   fact: 'Cucumbers are mostly water inside, just like watermelons!' },
+  ],
+};
+
+const LETTER_COLORS = [
+  '#FF6B6B','#FF8E53','#FFD93D','#6BCB77','#4D96FF','#A78BFA','#F97316','#EC4899'
+];
+
+const CATEGORY_THEMES = {
+  fruits: '#FF6B6B',
+  animals: '#4ECDC4',
+  vehicles: '#FFE66D',
+  veggies: '#95E77E',
+};
+
+let currentCategory = null;
+let currentIndex = 0;
+let synth = window.speechSynthesis;
+
+function startCategory(cat) {
+  currentCategory = cat;
+  currentIndex = 0;
+  document.getElementById('home-screen').style.display = 'none';
+  const cs = document.getElementById('card-screen');
+  cs.style.display = 'flex';
+  renderCard();
+}
+
+function goHome() {
+  document.getElementById('card-screen').style.display = 'none';
+  document.getElementById('home-screen').style.display = 'flex';
+  synth.cancel();
+}
+
+function renderCard() {
+  const cards = CATEGORIES[currentCategory];
+  const card = cards[currentIndex];
+  const total = cards.length;
+
+  // Progress
+  document.getElementById('progress-bar').style.width = ((currentIndex + 1) / total * 100) + '%';
+  document.getElementById('card-counter').textContent = `${currentIndex + 1} / ${total}`;
+
+  // Emoji & word
+  document.getElementById('card-emoji').textContent = card.emoji;
+  document.getElementById('card-word').textContent = card.word;
+  document.getElementById('fact-text').textContent = card.fact;
+
+  // Spelling bubbles
+  const spellingRow = document.getElementById('spelling-row');
+  spellingRow.innerHTML = '';
+  [...card.word.toUpperCase()].forEach((ch, i) => {
+    if (ch === ' ') return;
+    const b = document.createElement('div');
+    b.className = 'letter-bubble';
+    b.style.background = LETTER_COLORS[i % LETTER_COLORS.length];
+    b.style.animationDelay = (i * 0.07) + 's';
+    b.textContent = ch;
+    spellingRow.appendChild(b);
+  });
+
+  // Card bg color
+  document.getElementById('card-bg-shape').style.background = CATEGORY_THEMES[currentCategory];
+
+  // Re-animate card
+  const fc = document.getElementById('flashcard');
+  fc.style.animation = 'none';
+  fc.offsetHeight;
+  fc.style.animation = 'cardIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+
+  // Reset speak button
+  const sb = document.getElementById('speak-btn');
+  sb.classList.remove('speaking');
+  sb.textContent = '🔊 Hear it!';
+
+  // Auto speak after brief delay
+  setTimeout(() => speakWord(null), 600);
+}
+
+function handleCardTap() {
+  const emoji = document.getElementById('card-emoji');
+  emoji.classList.remove('bounce');
+  void emoji.offsetWidth;
+  emoji.classList.add('bounce');
+  speakWord(null);
+}
+
+function speakWord(e) {
+  if (e) { e.stopPropagation(); }
+  const card = CATEGORIES[currentCategory][currentIndex];
+  synth.cancel();
+
+  const utter = new SpeechSynthesisUtterance(card.word);
+  utter.rate = 0.85;
+  utter.pitch = 1.1;
+
+  const sb = document.getElementById('speak-btn');
+  sb.classList.add('speaking');
+  sb.textContent = '🗣️ Speaking...';
+  utter.onend = () => {
+    sb.classList.remove('speaking');
+    sb.textContent = '🔊 Hear it!';
+    // Spell it out after word
+    setTimeout(() => spellOut(card.word), 300);
+  };
+  synth.speak(utter);
+}
+
+function spellOut(word) {
+  synth.cancel();
+  // Use lowercase so TTS says "a" not "capital A"
+  const letters = [...word.toLowerCase()].filter(c => c !== ' ');
+  let i = 0;
+  function nextLetter() {
+    if (i >= letters.length) {
+      // All letters done — speak the fact
+      setTimeout(speakFact, 400);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(letters[i]);
+    u.rate = 0.8;
+    u.pitch = 1.2;
+    u.onend = () => { i++; setTimeout(nextLetter, 200); };
+    synth.speak(u);
+  }
+  nextLetter();
+}
+
+function speakFact() {
+  const card = CATEGORIES[currentCategory][currentIndex];
+  const u = new SpeechSynthesisUtterance(card.fact);
+  u.rate = 0.88;
+  u.pitch = 1.05;
+  synth.speak(u);
+}
+
+function nextCard() {
+  const cards = CATEGORIES[currentCategory];
+  if (currentIndex < cards.length - 1) {
+    currentIndex++;
+    renderCard();
+  } else {
+    celebrate();
+    setTimeout(goHome, 2200);
+  }
+}
+
+function prevCard() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    renderCard();
+  }
+}
+
+function celebrate() {
+  const colors = ['#FF6B6B','#FFE66D','#4ECDC4','#A78BFA','#43E97B','#FF8E53'];
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.top = '-20px';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDelay = Math.random() * 0.8 + 's';
+    c.style.animationDuration = (0.8 + Math.random() * 0.8) + 's';
+    c.style.transform = `rotate(${Math.random()*360}deg)`;
+    c.style.borderRadius = Math.random() > 0.5 ? '50%' : '3px';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 2000);
+  }
+  const u = new SpeechSynthesisUtterance('Great job! You are so smart!');
+  u.rate = 0.9; u.pitch = 1.2;
+  synth.speak(u);
+}
+</script>
+</body>
+</html>
